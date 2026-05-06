@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  python-fallback:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Test Python fallback
+        run: |
+          python3 -c "
+          import sys; sys.path.insert(0, '.')
+          from flux import automotive, aviation, saturate_i8, Constraint
+          assert saturate_i8(200) == 127
+          assert saturate_i8(-200) == -127
+          assert saturate_i8(50) == 50
+          c = Constraint(15, 55, 'battery_temp', 3)
+          r = c.check(60)
+          assert not r.passed
+          assert r.severity == 3
+          e = automotive()
+          assert len(e.constraints) == 5
+          print('All tests pass!')
+          "
