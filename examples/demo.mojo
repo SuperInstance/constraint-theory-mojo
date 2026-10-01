@@ -1,31 +1,50 @@
-"""Quick demo of FLUX constraint engine in Mojo."""
+"""Quick demo of FLUX constraint engine in Mojo.
 
-from flux.engine import ConstraintEngine, automotive_engine
-from flux.constraint import saturate_i8
+Prints a per-constraint receipt for the automotive preset, then benchmarks.
+Run from the repo root:
+    mojo run -I src examples/demo.mojo
+"""
 
-fn main():
+from engine import ConstraintEngine, automotive_engine
+from constraint import saturate_i8
+
+def main():
     print("=== FLUX Constraint Engine (Mojo) ===")
     print()
-    
+
     # Single check
-    let val: Int32 = 60
-    let sat = saturate_i8(val)
+    var val: Int32 = 60
+    var sat = saturate_i8(val)
     print("saturate_i8(60) =", sat)
-    
+    print("saturate_i8(200) =", saturate_i8(200))
+    print("saturate_i8(-200) =", saturate_i8(-200))
+
     # Automotive engine
     var engine = automotive_engine()
-    
-    # Check a value
-    let results = engine.check(60)
+
+    # Check a value and print a receipt
+    var value: Int32 = 60
+    var results = engine.check(value)
     print()
-    print("Checking value 60 against automotive constraints:")
+    print("+----------------------------------------------+")
+    print("| FLUX receipt: automotive preset, value =", value, "|")
+    print("+----------------------------------------------+")
+    var fails: Int = 0
     for i in range(len(results)):
-        let r = results[i]
-        if not r.passed:
-            print("  FAIL:", r.constraint_name, "(severity:", r.severity, ")")
-    
+        # List subscript yields an originless ref: no `^` move-out, no copy.
+        # Read fields by borrow instead (fleet trap: rebuild-via-ctor or borrow).
+        var passed = results[i].passed
+        var status: String = "PASS" if passed else "FAIL"
+        if not passed:
+            fails += 1
+        print("| ", results[i].constraint_name, "->", status, "sev =", results[i].severity)
+    print("+----------------------------------------------+")
+    print("| total constraints:", len(results), " fail:", fails)
+    print("+----------------------------------------------+")
+
     # Benchmark
     print()
     print("Running benchmark (1M iterations)...")
-    let rate = engine.benchmark(1_000_000)
-    print(f"Throughput: {rate:.0f} checks/sec")
+    var rate = engine.benchmark(1_000_000)
+    # f-string format specs are a parse error in 1.2; round manually.
+    print("Throughput:", Int(rate + 0.5), "checks/sec")
